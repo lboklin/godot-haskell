@@ -22,7 +22,10 @@ import Linear
 import Godot.Gdnative.Internal
 import Godot.Gdnative.Internal.TH
 
-import System.IO.Unsafe
+import           System.IO.Unsafe                         ( unsafePerformIO )
+
+import           Data.Vector                              ( Vector )
+import qualified Data.Vector                   as Vec
 
 data LibType = GodotTy | HaskellTy
 
@@ -30,11 +33,38 @@ type family TypeOf (x :: LibType) a
 -- I'm torn about this instance. Need TH if not using this
 type instance TypeOf 'GodotTy a = a
 
+
 -- |GodotFFI is a relation between low-level and high-level
 -- |Godot types, and conversions between them.
 class GodotFFI low high | low -> high where
   fromLowLevel :: low -> IO high
   toLowLevel :: high -> IO low
+
+
+-- C types
+
+type instance TypeOf 'HaskellTy CBool = Bool
+instance GodotFFI CBool Bool where
+  fromLowLevel = return . toBool
+  toLowLevel = return . fromBool
+
+type instance TypeOf 'HaskellTy CFloat = Float
+instance GodotFFI CFloat Float where
+  fromLowLevel = return . realToFrac
+  toLowLevel = return . realToFrac
+
+type instance TypeOf 'HaskellTy CInt = Int
+instance GodotFFI CInt Int where
+  fromLowLevel = return . fromEnum
+  toLowLevel = return . toEnum
+
+type instance TypeOf 'HaskellTy () = ()
+instance GodotFFI () () where
+  fromLowLevel = return . const ()
+  toLowLevel = return . const ()
+
+
+-- Built-in Godot types
 
 type instance TypeOf 'HaskellTy GodotString = Text
 instance GodotFFI GodotString Text where
@@ -52,7 +82,7 @@ instance GodotFFI GodotString Text where
 
 type instance TypeOf 'HaskellTy GodotVector2 = V2 Float
 instance GodotFFI GodotVector2 (V2 Float) where
-  fromLowLevel v = V2 
+  fromLowLevel v = V2
                    <$> (realToFrac <$> godot_vector2_get_x v)
                    <*> (realToFrac <$> godot_vector2_get_y v)
   toLowLevel (V2 x y) = godot_vector2_new (realToFrac x) (realToFrac y)
@@ -60,7 +90,7 @@ instance GodotFFI GodotVector2 (V2 Float) where
 
 type instance TypeOf 'HaskellTy GodotVector3 = V3 Float
 instance GodotFFI GodotVector3 (V3 Float) where
-  fromLowLevel v = V3 
+  fromLowLevel v = V3
                    <$> (realToFrac <$> godot_vector3_get_axis v GodotVector3AxisX)
                    <*> (realToFrac <$> godot_vector3_get_axis v GodotVector3AxisY)
                    <*> (realToFrac <$> godot_vector3_get_axis v GodotVector3AxisZ)
@@ -133,19 +163,91 @@ instance GodotFFI GodotNodePath NodePath where
 
 type instance TypeOf 'HaskellTy GodotColor = AlphaColour Double
 instance GodotFFI GodotColor (AlphaColour Double) where
-  fromLowLevel c = withOpacity
-                   <$> (sRGB
-                        <$> (realToFrac <$> godot_color_get_r c)
-                        <*> (realToFrac <$> godot_color_get_g c)
-                        <*> (realToFrac <$> godot_color_get_b c))
-                   <*> (realToFrac <$> godot_color_get_a c)
-  toLowLevel rgba = toSRGB (rgba `over` black)
-                    & \(RGB r g b) ->
-                        godot_color_new_rgba
-                          (realToFrac r)
-                          (realToFrac g)
-                          (realToFrac b)
-                          (realToFrac $ alphaChannel rgba)
+  fromLowLevel c = do
+    r <- realToFrac <$> godot_color_get_r c
+    g <- realToFrac <$> godot_color_get_g c
+    b <- realToFrac <$> godot_color_get_b c
+    a <- realToFrac <$> godot_color_get_a c
+    return $ withOpacity (sRGB r g b) a
+  toLowLevel rgba =
+    let RGB r g b = toSRGB (rgba `over` black)
+    in  godot_color_new_rgba
+          (realToFrac r)
+          (realToFrac g)
+          (realToFrac b)
+          (realToFrac $ alphaChannel rgba)
+
+
+-- Godot Arrays
+
+-- This should ideally be `[Variant 'HaskellTy]`, but that would
+-- require `AsVariant` to handle both `LibType`s.
+type instance TypeOf 'HaskellTy GodotArray = Vector (Variant 'GodotTy)
+instance GodotFFI GodotArray (Vector (Variant 'GodotTy)) where
+  fromLowLevel = fromLowLevelArray godot_array_size godot_array_get
+  toLowLevel = toLowLevelArray godot_array_new godot_array_append
+
+instance GodotFFI Word8 Word8 where
+  fromLowLevel = return
+  toLowLevel = return
+
+type instance TypeOf 'HaskellTy GodotPoolByteArray = Vector Word8
+instance GodotFFI GodotPoolByteArray (Vector Word8) where
+  fromLowLevel = fromLowLevelArray godot_pool_byte_array_size godot_pool_byte_array_get
+  toLowLevel = toLowLevelArray godot_pool_byte_array_new godot_pool_byte_array_append
+
+type instance TypeOf 'HaskellTy GodotPoolIntArray = Vector Int
+instance GodotFFI GodotPoolIntArray (Vector Int) where
+  fromLowLevel = fromLowLevelArray godot_pool_int_array_size godot_pool_int_array_get
+  toLowLevel = toLowLevelArray godot_pool_int_array_new godot_pool_int_array_append
+
+type instance TypeOf 'HaskellTy GodotPoolRealArray = Vector Float
+instance GodotFFI GodotPoolRealArray (Vector Float) where
+  fromLowLevel = fromLowLevelArray godot_pool_real_array_size godot_pool_real_array_get
+  toLowLevel = toLowLevelArray godot_pool_real_array_new godot_pool_real_array_append
+
+type instance TypeOf 'HaskellTy GodotPoolStringArray = Vector Text
+instance GodotFFI GodotPoolStringArray (Vector Text) where
+  fromLowLevel = fromLowLevelArray godot_pool_string_array_size godot_pool_string_array_get
+  toLowLevel = toLowLevelArray godot_pool_string_array_new godot_pool_string_array_append
+
+type instance TypeOf 'HaskellTy GodotPoolVector2Array = Vector (V2 Float)
+instance GodotFFI GodotPoolVector2Array (Vector (V2 Float)) where
+  fromLowLevel = fromLowLevelArray godot_pool_vector2_array_size godot_pool_vector2_array_get
+  toLowLevel = toLowLevelArray godot_pool_vector2_array_new godot_pool_vector2_array_append
+
+type instance TypeOf 'HaskellTy GodotPoolVector3Array = Vector (V3 Float)
+instance GodotFFI GodotPoolVector3Array (Vector (V3 Float)) where
+  fromLowLevel = fromLowLevelArray godot_pool_vector3_array_size godot_pool_vector3_array_get
+  toLowLevel = toLowLevelArray godot_pool_vector3_array_new godot_pool_vector3_array_append
+
+type instance TypeOf 'HaskellTy GodotPoolColorArray = Vector (AlphaColour Double)
+instance GodotFFI GodotPoolColorArray (Vector (AlphaColour Double)) where
+  fromLowLevel = fromLowLevelArray godot_pool_color_array_size godot_pool_color_array_get
+  toLowLevel = toLowLevelArray godot_pool_color_array_new godot_pool_color_array_append
+
+fromLowLevelArray
+  :: GodotFFI low high
+  => (arr -> IO CInt)
+  -> (arr -> CInt -> IO low)
+  -> arr
+  -> IO (Vector high)
+fromLowLevelArray sizef getf vs = do
+  size <- fromIntegral <$> sizef vs
+  let maybeNext n v = if n == (size - 1) then Nothing else Just (v, n + 1)
+  let variantAt n = maybeNext n <$> (getf vs n >>= fromLowLevel)
+  Vec.unfoldrM variantAt 0
+
+toLowLevelArray
+  :: GodotFFI low high
+  => IO arr
+  -> (arr -> low -> IO ())
+  -> Vector high
+  -> IO arr
+toLowLevelArray constr appendf vs = do
+  array <- constr
+  mapM_ (\x -> toLowLevel x >>= appendf array) (vs)
+  return array
 
 
 -- Variants
@@ -179,6 +281,7 @@ data Variant (ty :: LibType)
   | VariantPoolVector3Array !(TypeOf ty GodotPoolVector3Array)
   | VariantPoolColorArray !(TypeOf ty GodotPoolColorArray)
 
+type instance TypeOf 'HaskellTy GodotVariant = Variant 'GodotTy
 instance GodotFFI GodotVariant (Variant 'GodotTy) where
   fromLowLevel var = godot_variant_get_type var >>= \case
       GodotVariantTypeNil -> return VariantNil
