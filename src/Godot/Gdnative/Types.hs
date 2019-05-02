@@ -177,6 +177,17 @@ instance GodotFFI GodotColor (AlphaColour Double) where
           (realToFrac b)
           (realToFrac $ alphaChannel rgba)
 
+type instance TypeOf 'HaskellTy GodotObject = GodotObject
+instance GodotFFI GodotObject GodotObject where
+  fromLowLevel = return
+  toLowLevel = return
+
+data RID = RID GodotRid Int
+type instance TypeOf 'HaskellTy GodotRid = RID
+instance GodotFFI GodotRid RID where
+  fromLowLevel rid = RID rid <$> fromIntegral <$> godot_rid_get_id rid
+  toLowLevel (RID rid _)= return rid
+
 
 -- Godot Arrays
 
