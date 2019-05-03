@@ -9,28 +9,28 @@ import           Foreign
 import           Control.Monad                            ( liftM2 )
 
 
-data InstanceTy = InstanceTy
+data VariantTy = VariantTy
   { instName :: String
   , libTy :: String
   , toVt :: String
   , fromVt :: String
   }
 
-showInstance :: InstanceTy -> Type -> String
+showInstance :: VariantTy -> Type -> String
 showInstance instTy gty = unwords ["TypeOf", libTy instTy, typeName gty]
   where typeName (ConT name) = nameBase name
 
 
 generateAsVariantInstances :: Q [Dec]
 generateAsVariantInstances =
-  generateInstances $ InstanceTy "AsVariant" "GodotTy" "toVariant" "fromVariant"
+  generateVariantInstances $ VariantTy "AsVariant" "GodotTy" "toVariant" "fromVariant"
 
 generateAsHsVariantInstances :: Q [Dec]
-generateAsHsVariantInstances = generateInstances
-  $ InstanceTy "AsHsVariant" "HaskellTy" "toHsVariant" "fromHsVariant"
+generateAsHsVariantInstances = generateVariantInstances
+  $ VariantTy "AsHsVariant" "HaskellTy" "toHsVariant" "fromHsVariant"
 
-generateInstances :: InstanceTy -> Q [Dec]
-generateInstances instTy = do
+generateVariantInstances :: VariantTy -> Q [Dec]
+generateVariantInstances instTy = do
   (TyConI (DataD _ _ bndrs _ cons _)) <- lookupTypeName "Variant"
     >>= \(Just x) -> reify x
   let tys = mapMaybe getCon cons

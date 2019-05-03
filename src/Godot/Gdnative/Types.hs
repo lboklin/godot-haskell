@@ -379,11 +379,11 @@ instance GodotFFI GodotTransform Transform where
                                   orig'  <- toLowLevel orig
                                   godot_transform_new basis' orig'
 
-data Transform2 = TF2 { _tf2Rotation :: Float, _tf2Position :: V2 Float }
-type instance TypeOf 'HaskellTy GodotTransform2d = Transform2
+data Transform2D = TF2 { _tf2Rotation :: Float, _tf2Position :: V2 Float }
+type instance TypeOf 'HaskellTy GodotTransform2d = Transform2D
 type instance TypeOf 'GodotTy GodotTransform2d = GodotTransform2d
-type instance TypeOf 'GodotTy Transform2 = GodotTransform2d
-instance GodotFFI GodotTransform2d Transform2 where
+type instance TypeOf 'GodotTy Transform2D = GodotTransform2d
+instance GodotFFI GodotTransform2d Transform2D where
   fromLowLevel tf = TF2
                     <$> (fromLowLevel =<< godot_transform2d_get_rotation tf)
                     <*> (fromLowLevel =<< godot_transform2d_get_origin tf)
@@ -391,6 +391,7 @@ instance GodotFFI GodotTransform2d Transform2 where
                                  orig'  <- toLowLevel orig
                                  godot_transform2d_new rot' orig'
 
+-- | A plane with normal vector (a, b, c) and distance from the plane (d)
 data Plane = Plane Float Float Float Float
 type instance TypeOf 'HaskellTy GodotPlane = Plane
 type instance TypeOf 'GodotTy GodotPlane = GodotPlane
