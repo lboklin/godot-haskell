@@ -64,8 +64,8 @@ data Variant (ty :: LibType)
 
 
 class AsHsVariant a where
-  fromHsVariant :: Variant 'HaskellTy -> Maybe a
   toHsVariant :: a -> Variant 'HaskellTy
+  fromHsVariant :: Variant 'HaskellTy -> Maybe a
 
 class AsVariant a where
   toVariant :: a -> Variant 'GodotTy
@@ -76,36 +76,6 @@ class AsVariant a where
 class (AsVariant low, AsHsVariant high) => GodotFFI low high | low -> high where
   fromLowLevel :: low -> IO high
   toLowLevel :: high -> IO low
-
-
-instance AsHsVariant (Variant 'GodotTy) where
-  toHsVariant v = let !res = unsafePerformIO $ fromLowLevel v in res
-  fromHsVariant v = let !res = unsafePerformIO $ toLowLevel v in Just res
-
-instance AsHsVariant (Variant 'HaskellTy) where
-  toHsVariant = id
-  fromHsVariant = Just
-
-
-instance AsVariant (Variant 'GodotTy) where
-  toVariant = id
-  fromVariant = Just
-
-instance AsVariant (Variant 'HaskellTy) where
-  toVariant v = let !res = unsafePerformIO $ toLowLevel v in res
-  fromVariant v = let !res = unsafePerformIO $ fromLowLevel v in Just res
-
-instance AsVariant GodotVariant where
-  toVariant v = let !res = unsafePerformIO $ fromLowLevel v in res
-  fromVariant v = let !res = unsafePerformIO $ toLowLevel v in Just res
-
-instance AsVariant () where
-  toVariant _ = VariantNil
-  fromVariant VariantNil = Just ()
-  fromVariant _ = Nothing
-
-$(generateAsVariantInstances)
-
 
 toGodotVariant
   :: forall low high . GodotFFI low high => high -> Proxy low -> IO GodotVariant
@@ -279,14 +249,6 @@ type instance TypeOf 'GodotTy Bool = CBool
 instance GodotFFI CBool Bool where
   fromLowLevel = return . toBool
   toLowLevel = return . fromBool
-instance AsHsVariant Bool where
-  fromHsVariant (VariantBool a) = Just a
-  fromHsVariant _ = Nothing
-  toHsVariant = VariantBool
-instance AsVariant CBool where
-  fromVariant (VariantBool b) = Just $ fromBool b
-  fromVariant _ = Nothing
-  toVariant = VariantBool . toBool
 
 type instance TypeOf 'HaskellTy CFloat = Float
 type instance TypeOf 'GodotTy CFloat = CFloat
@@ -294,14 +256,6 @@ type instance TypeOf 'GodotTy Float = CFloat
 instance GodotFFI CFloat Float where
   fromLowLevel = return . realToFrac
   toLowLevel = return . realToFrac
-instance AsHsVariant Float where
-  fromHsVariant (VariantReal a) = Just a
-  fromHsVariant _ = Nothing
-  toHsVariant = VariantReal
-instance AsVariant CFloat where
-  fromVariant (VariantReal a) = Just $ realToFrac a
-  fromVariant _ = Nothing
-  toVariant = VariantReal . realToFrac
 
 type instance TypeOf 'HaskellTy CInt = Int
 type instance TypeOf 'GodotTy CInt = CInt
@@ -309,24 +263,12 @@ type instance TypeOf 'GodotTy Int = CInt
 instance GodotFFI CInt Int where
   fromLowLevel = return . fromEnum
   toLowLevel = return . toEnum
-instance AsHsVariant Int where
-  fromHsVariant (VariantInt a) = Just a
-  fromHsVariant _ = Nothing
-  toHsVariant = VariantInt
-instance AsVariant CInt where
-  fromVariant (VariantInt a) = Just $ toEnum a
-  fromVariant _ = Nothing
-  toVariant = VariantInt . fromEnum
 
 type instance TypeOf 'HaskellTy () = ()
 type instance TypeOf 'GodotTy () = ()
 instance GodotFFI () () where
   fromLowLevel = return . const ()
   toLowLevel = return . const ()
-instance AsHsVariant () where
-  fromHsVariant VariantNil = Just ()
-  fromHsVariant _ = Nothing
-  toHsVariant _ = VariantNil
 
 
 -- Built-in Godot types
@@ -345,10 +287,6 @@ instance GodotFFI GodotString Text where
     godot_string_chars_to_utf8_with_len ptr (fromIntegral len)
     where
       bstr = T.encodeUtf8 txt
-instance AsHsVariant Text where
-  fromHsVariant (VariantString a) = Just a
-  fromHsVariant _ = Nothing
-  toHsVariant = VariantString
 
 type Vector2 = V2 Float
 type instance TypeOf 'HaskellTy GodotVector2 = Vector2
@@ -359,10 +297,6 @@ instance GodotFFI GodotVector2 Vector2 where
                    <$> (realToFrac <$> godot_vector2_get_x v)
                    <*> (realToFrac <$> godot_vector2_get_y v)
   toLowLevel (V2 x y) = godot_vector2_new (realToFrac x) (realToFrac y)
-instance AsHsVariant Vector2 where
-  fromHsVariant (VariantVector2 a) = Just a
-  fromHsVariant _ = Nothing
-  toHsVariant = VariantVector2
 
 
 type Vector3 = V3 Float
@@ -375,10 +309,6 @@ instance GodotFFI GodotVector3 Vector3 where
                    <*> (realToFrac <$> godot_vector3_get_axis v GodotVector3AxisY)
                    <*> (realToFrac <$> godot_vector3_get_axis v GodotVector3AxisZ)
   toLowLevel (V3 x y z) = godot_vector3_new (realToFrac x) (realToFrac y) (realToFrac z)
-instance AsHsVariant Vector3 where
-  fromHsVariant (VariantVector3 a) = Just a
-  fromHsVariant _ = Nothing
-  toHsVariant = VariantVector3
 
 type Quat = Quaternion Float
 type instance TypeOf 'HaskellTy GodotQuat = Quat
@@ -395,10 +325,6 @@ instance GodotFFI GodotQuat Quat where
                                                         (realToFrac y)
                                                         (realToFrac z)
                                                         (realToFrac w)
-instance AsHsVariant Quat where
-  fromHsVariant (VariantQuat a) = Just a
-  fromHsVariant _ = Nothing
-  toHsVariant = VariantQuat
 
 type Rect2 = M22 Float
 type instance TypeOf 'HaskellTy GodotRect2 = Rect2
@@ -411,10 +337,6 @@ instance GodotFFI GodotRect2 Rect2 where
   toLowLevel (V2 pos size) = do pos' <- toLowLevel pos
                                 size' <- toLowLevel size
                                 godot_rect2_new_with_position_and_size pos' size'
-instance AsHsVariant Rect2 where
-  fromHsVariant (VariantRect2 a) = Just a
-  fromHsVariant _ = Nothing
-  toHsVariant = VariantRect2
 
 type AABB = M23 Float
 type instance TypeOf 'HaskellTy GodotAabb = AABB
@@ -427,10 +349,6 @@ instance GodotFFI GodotAabb AABB where
   toLowLevel (V2 pos size) = do pos'  <- toLowLevel pos
                                 size' <- toLowLevel size
                                 godot_aabb_new pos' size'
-instance AsHsVariant AABB where
-  fromHsVariant (VariantAabb a) = Just a
-  fromHsVariant _ = Nothing
-  toHsVariant = VariantAabb
 
 -- Axes X, Y and Z are represented by the int constants 0, 1 and 2 respectively (at least for Vector3):
 -- https://godot.readthedocs.io/en/latest/classes/class_vector3.html?highlight=axis#numeric-constants
@@ -448,10 +366,6 @@ instance GodotFFI GodotBasis Basis where
                              y' <- toLowLevel y
                              z' <- toLowLevel z
                              godot_basis_new_with_rows x' y' z'
-instance AsHsVariant Basis where
-  fromHsVariant (VariantBasis a) = Just a
-  fromHsVariant _ = Nothing
-  toHsVariant = VariantBasis
 
 data Transform = TF { _tfBasis :: Basis, _tfPosition :: V3 Float }
 type instance TypeOf 'HaskellTy GodotTransform = Transform
@@ -464,10 +378,6 @@ instance GodotFFI GodotTransform Transform where
   toLowLevel (TF basis orig) = do basis' <- toLowLevel basis
                                   orig'  <- toLowLevel orig
                                   godot_transform_new basis' orig'
-instance AsHsVariant Transform where
-  fromHsVariant (VariantTransform a) = Just a
-  fromHsVariant _ = Nothing
-  toHsVariant = VariantTransform
 
 data Transform2 = TF2 { _tf2Rotation :: Float, _tf2Position :: V2 Float }
 type instance TypeOf 'HaskellTy GodotTransform2d = Transform2
@@ -480,10 +390,6 @@ instance GodotFFI GodotTransform2d Transform2 where
   toLowLevel (TF2 rot orig) = do rot' <- toLowLevel rot
                                  orig'  <- toLowLevel orig
                                  godot_transform2d_new rot' orig'
-instance AsHsVariant Transform2 where
-  fromHsVariant (VariantTransform2d a) = Just a
-  fromHsVariant _ = Nothing
-  toHsVariant = VariantTransform2d
 
 data Plane = Plane Float Float Float Float
 type instance TypeOf 'HaskellTy GodotPlane = Plane
@@ -497,10 +403,6 @@ instance GodotFFI GodotPlane Plane where
   toLowLevel (Plane a b c d) = do
     [a', b', c', d'] <- mapM toLowLevel [a, b, c, d] :: IO [CFloat]
     godot_plane_new_with_reals a' b' c' d'
-instance AsHsVariant Plane where
-  fromHsVariant (VariantPlane a) = Just a
-  fromHsVariant _ = Nothing
-  toHsVariant = VariantPlane
 
 -- This should perhaps be better modeled - FilePath?
 newtype NodePath = NodePath Text
@@ -510,10 +412,6 @@ type instance TypeOf 'GodotTy NodePath = GodotNodePath
 instance GodotFFI GodotNodePath NodePath where
   fromLowLevel np = NodePath <$> (fromLowLevel =<< godot_node_path_get_name np 0)
   toLowLevel (NodePath np) = godot_node_path_new =<< toLowLevel np
-instance AsHsVariant NodePath where
-  fromHsVariant (VariantNodePath a) = Just a
-  fromHsVariant _ = Nothing
-  toHsVariant = VariantNodePath
 
 type Color = AlphaColour Double
 type instance TypeOf 'HaskellTy GodotColor = Color
@@ -533,20 +431,12 @@ instance GodotFFI GodotColor Color where
           (realToFrac g)
           (realToFrac b)
           (realToFrac $ alphaChannel rgba)
-instance AsHsVariant Color where
-  fromHsVariant (VariantColor a) = Just a
-  fromHsVariant _ = Nothing
-  toHsVariant = VariantColor
 
 type instance TypeOf 'HaskellTy GodotObject = GodotObject
 type instance TypeOf 'GodotTy GodotObject = GodotObject
 instance GodotFFI GodotObject GodotObject where
   fromLowLevel = return
   toLowLevel = return
-instance AsHsVariant GodotObject where
-  fromHsVariant (VariantObject a) = Just a
-  fromHsVariant _ = Nothing
-  toHsVariant = VariantObject
 
 data RID = RID GodotRid Int
 type instance TypeOf 'HaskellTy GodotRid = RID
@@ -555,10 +445,6 @@ type instance TypeOf 'GodotTy RID = GodotRid
 instance GodotFFI GodotRid RID where
   fromLowLevel rid = RID rid <$> fromIntegral <$> godot_rid_get_id rid
   toLowLevel (RID rid _) = return rid
-instance AsHsVariant RID where
-  fromHsVariant (VariantRid a) = Just a
-  fromHsVariant _ = Nothing
-  toHsVariant = VariantRid
 
 
 -- Godot Arrays
@@ -572,10 +458,6 @@ instance GodotFFI GodotArray Array where
     >>= mapM fromLowLevel
   toLowLevel high = mapM toLowLevel high
     >>= toLowLevelArray godot_array_new godot_array_append
-instance AsHsVariant Array where
-  fromHsVariant (VariantArray a) = Just a
-  fromHsVariant _ = Nothing
-  toHsVariant = VariantArray
 
 type ByteArray = Vector Word8
 type instance TypeOf 'HaskellTy GodotPoolByteArray = ByteArray
@@ -591,10 +473,6 @@ instance GodotFFI GodotPoolByteArray ByteArray where
     array <- godot_pool_byte_array_new
     mapM_ (godot_pool_byte_array_append array) (vs)
     return array
-instance AsHsVariant ByteArray where
-  fromHsVariant (VariantPoolByteArray a) = Just a
-  fromHsVariant _ = Nothing
-  toHsVariant = VariantPoolByteArray
 
 type IntArray = Vector Int
 type instance TypeOf 'HaskellTy GodotPoolIntArray = IntArray
@@ -603,10 +481,6 @@ type instance TypeOf 'GodotTy IntArray = GodotPoolIntArray
 instance GodotFFI GodotPoolIntArray IntArray where
   fromLowLevel = fromLowLevelArray godot_pool_int_array_size godot_pool_int_array_get
   toLowLevel = toLowLevelArray godot_pool_int_array_new godot_pool_int_array_append
-instance AsHsVariant IntArray where
-  fromHsVariant (VariantPoolIntArray a) = Just a
-  fromHsVariant _ = Nothing
-  toHsVariant = VariantPoolIntArray
 
 type RealArray = Vector Float
 type instance TypeOf 'HaskellTy GodotPoolRealArray = RealArray
@@ -615,10 +489,6 @@ type instance TypeOf 'GodotTy RealArray = GodotPoolRealArray
 instance GodotFFI GodotPoolRealArray RealArray where
   fromLowLevel = fromLowLevelArray godot_pool_real_array_size godot_pool_real_array_get
   toLowLevel = toLowLevelArray godot_pool_real_array_new godot_pool_real_array_append
-instance AsHsVariant RealArray where
-  fromHsVariant (VariantPoolRealArray a) = Just a
-  fromHsVariant _ = Nothing
-  toHsVariant = VariantPoolRealArray
 
 type StringArray = Vector Text
 type instance TypeOf 'HaskellTy GodotPoolStringArray = Vector Text
@@ -627,10 +497,6 @@ type instance TypeOf 'GodotTy (Vector Text) = GodotPoolStringArray
 instance GodotFFI GodotPoolStringArray StringArray where
   fromLowLevel = fromLowLevelArray godot_pool_string_array_size godot_pool_string_array_get
   toLowLevel = toLowLevelArray godot_pool_string_array_new godot_pool_string_array_append
-instance AsHsVariant StringArray where
-  fromHsVariant (VariantPoolStringArray a) = Just a
-  fromHsVariant _ = Nothing
-  toHsVariant = VariantPoolStringArray
 
 type Vector2Array = Vector (V2 Float)
 type instance TypeOf 'HaskellTy GodotPoolVector2Array = Vector2Array
@@ -639,10 +505,6 @@ type instance TypeOf 'GodotTy Vector2Array = GodotPoolVector2Array
 instance GodotFFI GodotPoolVector2Array Vector2Array where
   fromLowLevel = fromLowLevelArray godot_pool_vector2_array_size godot_pool_vector2_array_get
   toLowLevel = toLowLevelArray godot_pool_vector2_array_new godot_pool_vector2_array_append
-instance AsHsVariant Vector2Array where
-  fromHsVariant (VariantPoolVector2Array a) = Just a
-  fromHsVariant _ = Nothing
-  toHsVariant = VariantPoolVector2Array
 
 type Vector3Array = Vector (V3 Float)
 type instance TypeOf 'HaskellTy GodotPoolVector3Array = Vector3Array
@@ -651,10 +513,6 @@ type instance TypeOf 'GodotTy Vector3Array = GodotPoolVector3Array
 instance GodotFFI GodotPoolVector3Array Vector3Array where
   fromLowLevel = fromLowLevelArray godot_pool_vector3_array_size godot_pool_vector3_array_get
   toLowLevel = toLowLevelArray godot_pool_vector3_array_new godot_pool_vector3_array_append
-instance AsHsVariant Vector3Array where
-  fromHsVariant (VariantPoolVector3Array a) = Just a
-  fromHsVariant _ = Nothing
-  toHsVariant = VariantPoolVector3Array
 
 type ColorArray = Vector (AlphaColour Double)
 type instance TypeOf 'HaskellTy GodotPoolColorArray = ColorArray
@@ -666,10 +524,6 @@ instance GodotFFI GodotPoolColorArray ColorArray where
 instance GodotFFI (Variant 'HaskellTy) ColorArray where
   fromLowLevel (VariantPoolColorArray arr) = return arr
   toLowLevel = return . VariantPoolColorArray
-instance AsHsVariant ColorArray where
-  fromHsVariant (VariantPoolColorArray a) = Just a
-  fromHsVariant _ = Nothing
-  toHsVariant = VariantPoolColorArray
 
 fromLowLevelArray
   :: GodotFFI low high
@@ -700,19 +554,69 @@ type instance TypeOf 'GodotTy GodotDictionary = GodotDictionary
 type instance TypeOf 'GodotTy Dictionary = GodotDictionary
 instance GodotFFI GodotDictionary Dictionary where
   fromLowLevel dict = do
-    keys <- Vec.toList <$> (fromLowLevel =<< godot_dictionary_keys dict) :: IO [Variant 'HaskellTy]
-    let keysHigh = (\(VariantString str) -> str) <$> keys :: [Text]
-
-    vals <- Vec.toList <$> (fromLowLevel =<< godot_dictionary_values dict) :: IO [Variant 'HaskellTy]
-    return $ M.fromList $ zip keysHigh vals
+    let fromVt (VariantString str) = str
+    vtKeys <- fromLowLevel =<< godot_dictionary_keys dict
+    vtVals <- fromLowLevel =<< godot_dictionary_values dict
+    let keys = fmap fromVt $ Vec.toList vtKeys
+        vals = Vec.toList vtVals
+    return $ M.fromList $ zip keys vals
   toLowLevel m = do
     dict <- godot_dictionary_new
     flip mapM_ (M.toList m) $ \(k, v) -> do
-      kvt <- toGodotVariant k (Proxy @GodotString)
-      valvt <- toLowLevel =<< toLowLevel v
-      godot_dictionary_set dict kvt valvt
+      vtKey <- toGodotVariant k (Proxy @GodotString)
+      vtVal <- toLowLevel =<< toLowLevel v
+      godot_dictionary_set dict vtKey vtVal
     return dict
-instance AsHsVariant Dictionary where
-  fromHsVariant (VariantDictionary dict) = Just dict
+
+
+-- Variants
+
+
+instance AsVariant (Variant 'GodotTy) where
+  toVariant = id
+  fromVariant = Just
+
+instance AsVariant (Variant 'HaskellTy) where
+  toVariant v = let !res = unsafePerformIO $ toLowLevel v in res
+  fromVariant v = let !res = unsafePerformIO $ fromLowLevel v in Just res
+
+instance AsVariant GodotVariant where
+  toVariant v = let !res = unsafePerformIO $ fromLowLevel v in res
+  fromVariant v = let !res = unsafePerformIO $ toLowLevel v in Just res
+
+instance AsVariant () where
+  toVariant _ = VariantNil
+  fromVariant VariantNil = Just ()
+  fromVariant _ = Nothing
+
+instance AsVariant CBool where
+  fromVariant (VariantBool b) = Just $ fromBool b
+  fromVariant _ = Nothing
+  toVariant = VariantBool . toBool
+
+instance AsVariant CInt where
+  fromVariant (VariantInt a) = Just $ toEnum a
+  fromVariant _ = Nothing
+  toVariant = VariantInt . fromEnum
+
+instance AsVariant CFloat where
+  fromVariant (VariantReal a) = Just $ realToFrac a
+  fromVariant _ = Nothing
+  toVariant = VariantReal . realToFrac
+
+$(generateAsVariantInstances)
+
+instance AsHsVariant (Variant 'GodotTy) where
+  toHsVariant v = let !res = unsafePerformIO $ fromLowLevel v in res
+  fromHsVariant v = let !res = unsafePerformIO $ toLowLevel v in Just res
+
+instance AsHsVariant (Variant 'HaskellTy) where
+  toHsVariant = id
+  fromHsVariant = Just
+
+instance AsHsVariant () where
+  fromHsVariant VariantNil = Just ()
   fromHsVariant _ = Nothing
-  toHsVariant = VariantDictionary
+  toHsVariant _ = VariantNil
+
+$(generateAsHsVariantInstances)
