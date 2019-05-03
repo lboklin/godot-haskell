@@ -73,7 +73,7 @@ class AsVariant a where
 
 -- |GodotFFI is a relation between low-level and high-level
 -- |Godot types, and conversions between them.
-class (AsVariant low, AsHsVariant high) => GodotFFI low high | low -> high where
+class (AsVariant low, AsHsVariant high) => GodotFFI low high | low -> high, high -> low where
   fromLowLevel :: low -> IO high
   toLowLevel :: high -> IO low
 
@@ -521,9 +521,6 @@ type instance TypeOf 'GodotTy ColorArray = GodotPoolColorArray
 instance GodotFFI GodotPoolColorArray ColorArray where
   fromLowLevel = fromLowLevelArray godot_pool_color_array_size godot_pool_color_array_get
   toLowLevel = toLowLevelArray godot_pool_color_array_new godot_pool_color_array_append
-instance GodotFFI (Variant 'HaskellTy) ColorArray where
-  fromLowLevel (VariantPoolColorArray arr) = return arr
-  toLowLevel = return . VariantPoolColorArray
 
 fromLowLevelArray
   :: GodotFFI low high
