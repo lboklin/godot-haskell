@@ -77,9 +77,8 @@ class (AsVariant low, AsHsVariant high) => GodotFFI low high | low -> high, high
   fromLowLevel :: low -> IO high
   toLowLevel :: high -> IO low
 
-toGodotVariant
-  :: forall low high . GodotFFI low high => high -> Proxy low -> IO GodotVariant
-toGodotVariant high _ = do
+toGodotVariant :: forall low high . GodotFFI low high => high -> IO GodotVariant
+toGodotVariant high = do
   low <- toLowLevel high :: IO low
   let vt = toVariant low :: Variant 'GodotTy
   toLowLevel vt
@@ -561,7 +560,7 @@ instance GodotFFI GodotDictionary Dictionary where
   toLowLevel m = do
     dict <- godot_dictionary_new
     flip mapM_ (M.toList m) $ \(k, v) -> do
-      vtKey <- toGodotVariant k (Proxy @GodotString)
+      vtKey <- toGodotVariant k
       vtVal <- toLowLevel =<< toLowLevel v
       godot_dictionary_set dict vtKey vtVal
     return dict
