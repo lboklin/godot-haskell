@@ -1,6 +1,7 @@
 module Godot.Methods where
 import Godot.Internal.Dispatch
 import Godot.Api.Auto
+import Data.Text
 
 _action_pressed :: Method "_action_pressed" cls sig => cls -> sig
 _action_pressed = runMethod @"_action_pressed"

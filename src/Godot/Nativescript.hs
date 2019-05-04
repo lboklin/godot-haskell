@@ -227,7 +227,7 @@ tryCast = tryObjectCast . safeCast
 tryObjectCast
   :: forall a . (Typeable a, AsVariant a) => GodotObject -> IO (Maybe a)
 tryObjectCast obj = do
-  isCls <- is_class obj =<< toLowLevel (nameOf @a)
+  isCls <- is_class obj (nameOf @a)
   if isCls
     then do
       asGVt <- toLowLevel $ toVariant obj :: IO GodotVariant

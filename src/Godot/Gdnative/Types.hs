@@ -206,21 +206,21 @@ type instance TypeOf 'HaskellTy GodotDictionary = Dictionary
 type instance TypeOf 'GodotTy GodotDictionary = GodotDictionary
 type instance TypeOf 'GodotTy Dictionary = GodotDictionary
 
-toGodotVariant :: forall low high . GodotFFI low high => high -> IO GodotVariant
-toGodotVariant high = do
-  low <- toLowLevel high :: IO low
+toGodotVariant :: forall a . (Typeable a, AsVariant a) => a -> IO GodotVariant
+toGodotVariant low = do
+  -- low <- toLowLevel high :: IO low
   let vt = toVariant low :: Variant 'GodotTy
   toLowLevel vt
 
-fromGodotVariant
-  :: forall low high . (GodotFFI low high) => GodotVariant -> IO high
+fromGodotVariant :: forall a . (Typeable a, AsVariant a) => GodotVariant -> IO a
 fromGodotVariant var = do
-  low <- fromVariant <$> fromLowLevel var
+  low <-
+    fromVariant <$> (fromLowLevel var :: IO (Variant 'GodotTy)) :: IO (Maybe a)
   case low of
-    Just x  -> x `seq` fromLowLevel x
+    Just x  -> return x
     Nothing -> do
       haveTy <- godot_variant_get_type var
-      let expTy = typeOf (undefined :: low)
+      let expTy = typeOf (undefined :: a)
       error
         $  "Error in API: couldn't fromVariant. have: "
         ++ show haveTy
@@ -353,10 +353,11 @@ instance GodotFFI GodotVariant (Variant 'GodotTy) where
     VariantPoolVector3Array x -> godot_variant_new_pool_vector3_array             x
     VariantPoolColorArray   x -> godot_variant_new_pool_color_array               x
 
-withVariantArray
-  :: [Variant 'GodotTy] -> ((Ptr (Ptr GodotVariant), CInt) -> IO a) -> IO a
-withVariantArray vars mtd = allocaArray (length vars)
-  $ \arrPtr -> withVars vars 0 arrPtr mtd
+withHsVariantArray
+  :: [Variant 'HaskellTy] -> ((Ptr (Ptr GodotVariant), CInt) -> IO a) -> IO a
+withHsVariantArray vars mtd = allocaArray (length vars) $ \arrPtr -> do
+  vars' <- mapM toLowLevel vars
+  withVars vars' 0 arrPtr mtd
  where
   withVars (x : xs) n arrPtr mtd = do
     vt  <- toLowLevel x
@@ -431,7 +432,6 @@ instance AsHsVariant () where
   toHsVariant _ = VariantNil
 
 $(generateAsHsVariantInstances)
-
 
 
 instance GodotFFI CBool Bool where
@@ -653,7 +653,7 @@ instance GodotFFI GodotDictionary Dictionary where
   toLowLevel m = do
     dict <- godot_dictionary_new
     flip mapM_ (M.toList m) $ \(k, v) -> do
-      vtKey <- toGodotVariant k
+      vtKey <- toGodotVariant =<< toLowLevel k
       vtVal <- toLowLevel =<< toLowLevel v
       godot_dictionary_set dict vtKey vtVal
     return dict

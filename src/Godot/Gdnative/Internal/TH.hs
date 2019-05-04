@@ -22,8 +22,8 @@ showInstance instTy gty = unwords ["TypeOf", libTy instTy, typeName gty]
 
 
 generateAsVariantInstances :: Q [Dec]
-generateAsVariantInstances =
-  generateVariantInstances $ VariantTy "AsVariant" "GodotTy" "toVariant" "fromVariant"
+generateAsVariantInstances = generateVariantInstances
+  $ VariantTy "AsVariant" "GodotTy" "toVariant" "fromVariant"
 
 generateAsHsVariantInstances :: Q [Dec]
 generateAsHsVariantInstances = generateVariantInstances
@@ -58,8 +58,8 @@ generateVariantInstances instTy = do
            (normalB $ conE $ mkName $ nameBase name)
            []
     , valD (varP $ mkName $ fromVt instTy)
-        (normalB [| \var -> case var of
-                      $(conP (mkName $ nameBase name) [varP $ mkName "x"]) -> Just x
-                      _ -> Nothing |])
-        []
+           (normalB [| \var -> case var of
+                         $(conP (mkName $ nameBase name) [varP $ mkName "x"]) -> Just x
+                         _ -> Nothing |])
+           []
     ]
