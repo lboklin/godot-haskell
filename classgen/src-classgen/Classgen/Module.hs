@@ -354,7 +354,11 @@ mkMethod cls method = do
     )
     [hs|
       \(arrPtr, len) -> godot_method_bind_call $(clsMethodBindVar) (coerce cls) arrPtr len >>=
-        \(err, res) -> throwIfErr err >> fromGodotVariant res >>= fromLowLevel |]
+        \(err, vt) -> do
+          throwIfErr err
+          res <- fromLowLevel =<< fromGodotVariant vt
+          godot_variant_destroy vt
+          return res |]
 
   argNames =
     map (HS.Ident () . ("arg" ++) . show) [1 .. length (method ^. arguments)]
