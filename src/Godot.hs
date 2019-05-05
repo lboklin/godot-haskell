@@ -1,5 +1,6 @@
 module Godot
   ( module M
+  , godotPrint
   )
 where
 
@@ -13,6 +14,9 @@ import           Godot.Internal.Dispatch       as M
                                                           -- Needed for down-casting objects
                                                           , safeCast
                                                           )
+
+import qualified Godot.Gdnative.Internal.Api
+                                               as Api
 
 -- Better to export these now than to inevitably have the user dig through the
 -- whole library in search of them.
@@ -75,3 +79,8 @@ import           Control.Monad.STM             as M
 -- We use Text as the Haskell equivalent of GodotString
 import           Data.Text                     as M
                                                           ( Text )
+
+godotPrint :: Text -> IO ()
+godotPrint txt = do
+  gstr <- toLowLevel txt
+  Api.godot_print gstr
