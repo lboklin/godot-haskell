@@ -355,9 +355,9 @@ instance GodotFFI GodotVariant (Variant 'GodotTy) where
     VariantPoolVector3Array x -> godot_variant_new_pool_vector3_array             x
     VariantPoolColorArray   x -> godot_variant_new_pool_color_array               x
 
-withHsVariantArray
+withGodotVariantArray
   :: [Variant 'HaskellTy] -> ((Ptr (Ptr GodotVariant), CInt) -> IO a) -> IO a
-withHsVariantArray vars mtd = allocaArray (length vars) $ \arrPtr -> do
+withGodotVariantArray vars mtd = allocaArray (length vars) $ \arrPtr -> do
   withVars vars 0 arrPtr mtd
  where
   withVars (x : xs) n arrPtr mtd = do
@@ -373,9 +373,6 @@ throwIfErr :: GodotVariantCallError -> IO ()
 throwIfErr err = case variantCallErrorError err of
   GodotCallErrorCallOk -> return ()
   _                    -> throwIO err
-
-
--- C types
 
 
 -- Variants
@@ -435,6 +432,8 @@ instance AsHsVariant () where
 $(generateAsHsVariantInstances)
 
 
+-- C types
+
 instance GodotFFI CBool Bool where
   fromLowLevel = return . toBool
   toLowLevel = return . fromBool
@@ -446,7 +445,6 @@ instance GodotFFI CFloat Float where
 instance GodotFFI CInt Int where
   fromLowLevel = return . fromEnum
   toLowLevel = return . toEnum
-
 
 instance GodotFFI () () where
   fromLowLevel = return . const ()

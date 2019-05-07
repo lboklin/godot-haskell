@@ -343,7 +343,7 @@ mkMethod cls method = do
     ()
     (HS.App
       ()
-      (HS.Var () (HS.UnQual () (HS.Ident () "withHsVariantArray")))
+      (HS.Var () (HS.UnQual () (HS.Ident () "withGodotVariantArray")))
       (HS.List () $ map
         ( HS.App () (HS.Var () (HS.UnQual () (HS.Ident () "toHsVariant")))
         . HS.Var ()
@@ -354,11 +354,7 @@ mkMethod cls method = do
     )
     [hs|
       \(arrPtr, len) -> godot_method_bind_call $(clsMethodBindVar) (coerce cls) arrPtr len >>=
-        \(err, vt) -> do
-          throwIfErr err
-          res <- fromLowLevel =<< fromGodotVariant vt
-          godot_variant_destroy vt
-          return res |]
+        \(err, resVt) -> throwIfErr err >> fromGodotVariant resVt >>= fromLowLevel |]
 
   argNames =
     map (HS.Ident () . ("arg" ++) . show) [1 .. length (method ^. arguments)]
