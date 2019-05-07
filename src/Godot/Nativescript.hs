@@ -282,13 +282,16 @@ func NoRPC "_unhandled_input" $ \self [evObj] ->
 @
 -}
 func
-  :: (NativeScript cls, AsVariant a)
+  :: (NativeScript cls, GodotFFI low high)
   => RPC
   -> Text
-  -> (cls -> [GodotVariant] -> IO a)
+  -> (cls -> [Variant 'HaskellTy] -> IO high)
   -> GodotMethod cls
-func rpc mthdName fn = GodotMethod rpc mthdName
-  $ \self args -> toLowLevel . toVariant =<< fn self (Vec.toList args)
+func rpc mthdName fn = GodotMethod rpc mthdName $ \self args -> do
+  hsVtArgs <- mapM (\hsVt -> fromGodotVariant hsVt >>= fromLowLevel)
+                   (Vec.toList args)
+  highRes <- fn self hsVtArgs
+  toLowLevel highRes >>= toGodotVariant
 
 
 registerMethod :: forall a . NativeScript a => Registerer 'GMethod a -> IO ()
