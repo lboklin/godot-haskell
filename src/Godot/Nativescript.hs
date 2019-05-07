@@ -18,7 +18,7 @@ module Godot.Nativescript
   , signal
   , tryCast
   , tryObjectCast
-  , asNativeScript
+  , asNativeScriptClass
   )
 where
 
@@ -235,8 +235,8 @@ tryObjectCast obj = do
     else return Nothing
 
 
-asNativeScript :: forall a . NativeScript a => GodotObject -> IO (Maybe a)
-asNativeScript obj = do
+asNativeScriptClass :: forall a . NativeScript a => GodotObject -> IO (Maybe a)
+asNativeScriptClass obj = do
   tyPtr <- godot_nativescript_get_type_tag obj
   ttags <- atomically $ readTVar typeTags
   if tyPtr == nullPtr || tyPtr `S.notMember` ttags
@@ -253,14 +253,6 @@ asNativeScript obj = do
                 >>= (deRefStablePtr . castPtrToStablePtr)
                 )
         else return Nothing
-
--- unsafeObjectCastNS :: NativeScript a => GodotObject -> a
--- unsafeObjectCastNS obj =
---   unsafePerformIO
---     $   godot_nativescript_get_userdata obj
---     >>= deRefStablePtr
---     .   castPtrToStablePtr
--- {-# NOINLINE unsafeObjectCastNS #-}
 
 copyVariant
   :: Ptr GodotVariant -- ^ destination
