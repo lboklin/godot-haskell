@@ -358,11 +358,10 @@ instance GodotFFI GodotVariant (Variant 'GodotTy) where
 withHsVariantArray
   :: [Variant 'HaskellTy] -> ((Ptr (Ptr GodotVariant), CInt) -> IO a) -> IO a
 withHsVariantArray vars mtd = allocaArray (length vars) $ \arrPtr -> do
-  vars' <- mapM toLowLevel vars
-  withVars vars' 0 arrPtr mtd
+  withVars vars 0 arrPtr mtd
  where
   withVars (x : xs) n arrPtr mtd = do
-    vt  <- toLowLevel x
+    vt  <- toLowLevel =<< toLowLevel x
     res <- withGodotVariant vt $ \vtPtr -> do
       poke (advancePtr arrPtr n) vtPtr
       withVars xs (n + 1) arrPtr mtd
