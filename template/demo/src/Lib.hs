@@ -7,15 +7,15 @@ module Lib
 where
 
 import           Godot
-import qualified Godot.Gdnative.Internal.Api   as Api
+
+import           Control.Monad                            ( when )
 import qualified Data.Text                     as T
-import           Control.Monad
-import           Data.Function                            ( (&) )
 
 exports :: GdnativeHandle -> IO ()
 exports desc = do
   registerClass $ RegClass desc $ classInit @Main
-  -- registerClass $ RegClass desc $ classInit @MyOtherClass
+  registerClass $ RegClass desc $ classInit @SimpleNode
+
 
 data Main = Main
   { _mBase :: GodotNode
@@ -28,19 +28,43 @@ instance HasBaseClass Main where
 instance NativeScript Main where
   classInit base = Main base <$> newTVarIO 0
   classMethods =
-    [ func NoRPC "_process" $
-        \self [deltaVt] -> do
-          delta <- fromGodotVariant deltaVt
-          (sec, sec') <- atomically $ do
+    [ func NoRPC "_ready" $ \self _ -> do
+        godotPrint "Ready"
+
+        Just rl <- getSingleton @Godot_ResourceLoader
+        Just ns <- load rl "res://SimpleNode.gdns" "NativeScript" False >>= tryCast
+        Just simpleNode <- new (ns :: GodotNativeScript) [] >>= asNativeScriptClass @SimpleNode
+
+        set_name (super simpleNode) "Simple"
+        add_child self (super simpleNode) False
+        name <- get_name (super simpleNode)
+        godotPrint $ T.unwords ["Added", name, "as child"]
+
+
+    , func NoRPC "_process" $ \self [VariantReal delta] -> do
+        (sec, sec') <- atomically $ do
             t <- readTVar (_mTime self)
             let t' = t + delta
             writeTVar (_mTime self) t'
             return (floor t, floor t') :: STM (Int, Int)
-          when (sec < sec') $
-            "Seconds passed: " ++ Prelude.show sec'
-              & T.pack
-              & (toLowLevel :: Text -> IO GodotString)
-              >>= Api.godot_print
+
+        when (sec < sec') $
+          godotPrint $ T.pack $ "Seconds passed: " ++ Prelude.show sec'
     ]
+
+
+newtype SimpleNode = SimpleNode GodotNode
+
+instance HasBaseClass SimpleNode where
+  type BaseClass SimpleNode = GodotNode
+  super (SimpleNode base) = base
+instance NativeScript SimpleNode where
+  classInit base = return $ SimpleNode base
+  classMethods =
+    [ func NoRPC "_ready" $ \self _ -> do
+        name <- get_name self
+        godotPrint $ T.unwords ["Hi, I'm", name]
+    ]
+
 
 
