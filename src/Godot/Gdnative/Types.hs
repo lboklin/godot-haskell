@@ -212,15 +212,17 @@ toGodotVariant low = do
   let vt = toVariant low :: Variant 'GodotTy
   toLowLevel vt
 
-fromGodotVariant :: forall a . (Typeable a, AsVariant a) => GodotVariant -> IO a
+fromGodotVariant
+  :: forall low . (Typeable low, AsVariant low) => GodotVariant -> IO low
 fromGodotVariant var = do
   low <-
-    fromVariant <$> (fromLowLevel var :: IO (Variant 'GodotTy)) :: IO (Maybe a)
+    fromVariant <$> (fromLowLevel var :: IO (Variant 'GodotTy)) :: IO
+      (Maybe low)
   case low of
     Just x  -> return x
     Nothing -> do
       haveTy <- godot_variant_get_type var
-      let expTy = typeOf (undefined :: a)
+      let expTy = typeOf (undefined :: low)
       error
         $  "Error in API: couldn't fromVariant. have: "
         ++ show haveTy
